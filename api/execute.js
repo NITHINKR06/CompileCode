@@ -1,11 +1,16 @@
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).end();
 
+  let body = "";
+  for await (const chunk of req) {
+    body += chunk;
+  }
+
   try {
     const response = await fetch("https://emkc.org/api/v2/piston/execute", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(req.body),
+      body: body,
     });
 
     const data = await response.json();
