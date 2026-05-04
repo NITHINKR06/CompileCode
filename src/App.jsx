@@ -38,7 +38,7 @@ const LANGUAGES = [
   },
 ];
 
-const PISTON_API = "https://emkc.org/api/v2/piston/execute";
+const PISTON_API = "/api/execute";
 
 const DARK = {
   bg: "#070710",
