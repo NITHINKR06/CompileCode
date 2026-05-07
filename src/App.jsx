@@ -2,43 +2,38 @@ import { useState, useRef, useEffect, useCallback } from "react";
 
 const LANGUAGES = [
   {
-    id: "python", label: "Python", version: "3.10.0", ext: "py", pistonLang: "python",
+    id: "python", label: "Python", version: "3.10.0", ext: "py", judge0Id: 71,
     icon: "🐍", color: "#3b82f6", desc: "General purpose scripting",
     starter: `# Python — ready to run\nprint("Hello, World!")\n\n# Try something:\nnums = [1, 2, 3, 4, 5]\nprint(f"Sum: {sum(nums)}")\nprint(f"Squares: {[x**2 for x in nums]}")\n`
   },
   {
-    id: "javascript", label: "JavaScript", version: "18.15.0", ext: "js", pistonLang: "javascript",
+    id: "javascript", label: "JavaScript", version: "18.15.0", ext: "js", judge0Id: 63,
     icon: "⚡", color: "#f59e0b", desc: "Web & Node.js runtime",
     starter: `// JavaScript — ready to run\nconsole.log("Hello, World!");\n\n// Try something:\nconst nums = [1, 2, 3, 4, 5];\nconsole.log("Sum:", nums.reduce((a, b) => a + b, 0));\nconsole.log("Squares:", nums.map(x => x ** 2));\n`
   },
   {
-    id: "typescript", label: "TypeScript", version: "5.0.3", ext: "ts", pistonLang: "typescript",
+    id: "typescript", label: "TypeScript", version: "5.0.3", ext: "ts", judge0Id: 74,
     icon: "🔷", color: "#06b6d4", desc: "Typed JavaScript",
     starter: `// TypeScript — ready to run\nconst greet = (name: string): string => \`Hello, \${name}!\`;\nconsole.log(greet("World"));\n\ninterface User { name: string; age: number; }\nconst user: User = { name: "Nithin", age: 21 };\nconsole.log(\`User: \${user.name}, Age: \${user.age}\`);\n`
   },
   {
-    id: "java", label: "Java", version: "15.0.2", ext: "java", pistonLang: "java",
+    id: "java", label: "Java", version: "15.0.2", ext: "java", judge0Id: 62,
     icon: "☕", color: "#ef4444", desc: "Class-based OOP",
     starter: `public class Main {\n  public static void main(String[] args) {\n    System.out.println("Hello, World!");\n\n    int[] nums = {1, 2, 3, 4, 5};\n    int sum = 0;\n    for (int n : nums) sum += n;\n    System.out.println("Sum: " + sum);\n  }\n}\n`
   },
   {
-    id: "c", label: "C", version: "10.2.0", ext: "c", pistonLang: "c",
+    id: "c", label: "C", version: "10.2.0", ext: "c", judge0Id: 50,
     icon: "⚙️", color: "#8b5cf6", desc: "Low-level systems",
     starter: `#include <stdio.h>\n\nint main() {\n  printf("Hello, World!\\n");\n\n  int nums[] = {1, 2, 3, 4, 5};\n  int sum = 0;\n  for (int i = 0; i < 5; i++) sum += nums[i];\n  printf("Sum: %d\\n", sum);\n\n  return 0;\n}\n`
   },
   {
-    id: "cpp", label: "C++", version: "10.2.0", ext: "cpp", pistonLang: "c++",
+    id: "cpp", label: "C++", version: "10.2.0", ext: "cpp", judge0Id: 53,
     icon: "🔧", color: "#10b981", desc: "High-perf systems",
     starter: `#include <iostream>\n#include <vector>\nusing namespace std;\n\nint main() {\n  cout << "Hello, World!" << endl;\n\n  vector<int> nums = {1, 2, 3, 4, 5};\n  int sum = 0;\n  for (int n : nums) sum += n;\n  cout << "Sum: " << sum << endl;\n\n  return 0;\n}\n`
   },
-  {
-    id: "sqlite3", label: "SQL", version: "3.36.0", ext: "sql", pistonLang: "sqlite3",
-    icon: "🗄️", color: "#f97316", desc: "SQLite queries",
-    starter: `-- SQL (SQLite) — ready to run\nCREATE TABLE users (\n  id INTEGER PRIMARY KEY,\n  name TEXT NOT NULL,\n  role TEXT\n);\n\nINSERT INTO users (name, role) VALUES\n  ('Alice', 'admin'),\n  ('Bob', 'dev'),\n  ('Nithin', 'hacker');\n\nSELECT * FROM users WHERE role != 'admin';\n`
-  },
 ];
 
-const PISTON_API = "/api/execute";
+const CODE_EXECUTION_API = "/api/execute";
 
 const DARK = {
   bg: "#070710",
@@ -142,13 +137,12 @@ export default function App() {
     setOutput(null);
     const t0 = Date.now();
     try {
-      const res = await fetch(PISTON_API, {
+      const res = await fetch(CODE_EXECUTION_API, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          language: lang.pistonLang,
-          version: lang.version,
-          files: [{ name: `main.${lang.ext}`, content: code }],
+          language_id: lang.judge0Id,
+          source_code: code,
           stdin,
         }),
       });
