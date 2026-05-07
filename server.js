@@ -11,28 +11,13 @@ app.post('/api/execute', async (req, res) => {
     const payload = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
     console.log('Execute request:', JSON.stringify(payload, null, 2));
     
-    // Try primary endpoint first
-    let response = await fetch('https://api.piston.rocks/execute', {
+    const response = await fetch('https://emkc.org/api/v2/piston/execute', {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
-        'User-Agent': 'CodeRun/1.0',
       },
       body: JSON.stringify(payload),
     });
-
-    // Fallback to emkc.org if primary fails
-    if (response.status === 401 || response.status === 404) {
-      console.log('Trying fallback endpoint...');
-      response = await fetch('https://emkc.org/api/v2/piston/execute', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'User-Agent': 'CodeRun/1.0',
-        },
-        body: JSON.stringify(payload),
-      });
-    }
 
     const responseText = await response.text();
     console.log(`API Response (${response.status}):`, responseText);
