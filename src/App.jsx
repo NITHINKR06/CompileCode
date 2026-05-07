@@ -153,11 +153,26 @@ export default function App() {
         }),
       });
       const data = await res.json();
-      const r = data.run || {};
+      
+      // Handle Piston API response (data.run) or direct response
+      const r = data.run || data;
+      
+      if (!res.ok) {
+        throw new Error(data.message || `API Error: ${res.status}`);
+      }
+      
       setExecTime(((Date.now() - t0) / 1000).toFixed(2));
-      setOutput({ stdout: r.stdout || "", stderr: r.stderr || "", code: r.code ?? -1 });
+      setOutput({ 
+        stdout: r.stdout || "", 
+        stderr: r.stderr || "", 
+        code: r.code ?? 0 
+      });
     } catch (err) {
-      setOutput({ stdout: "", stderr: `Network error: ${err.message}`, code: -1 });
+      setOutput({ 
+        stdout: "", 
+        stderr: `❌ Error: ${err.message}${err.message.includes("Network") ? "" : "\n\nTip: Check if backend is running on :3002"}`, 
+        code: -1 
+      });
     }
     setRunning(false);
   };
