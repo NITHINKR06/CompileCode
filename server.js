@@ -1,9 +1,7 @@
 import express from 'express';
-import { createProxyMiddleware } from 'express-http-proxy';
 
 const app = express();
-const PORT = 3001;
-const VITE_PORT = 5173;
+const PORT = 3002;
 
 app.use(express.text());
 app.use(express.json());
@@ -23,13 +21,6 @@ app.post('/api/execute', async (req, res) => {
   }
 });
 
-// Proxy all other requests to Vite dev server
-app.use('/', createProxyMiddleware({
-  target: `http://localhost:${VITE_PORT}`,
-  changeOrigin: true,
-}));
-
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
-  console.log(`Proxying to Vite dev server on http://localhost:${VITE_PORT}`);
 });
