@@ -155,7 +155,7 @@ export default function App() {
       const data = await res.json();
       const r = data.run || {};
       setExecTime(((Date.now() - t0) / 1000).toFixed(2));
-      setOutput({ stdout: r.stdout || "", stderr: r.stderr || "", code: r.code });
+      setOutput({ stdout: r.stdout || "", stderr: r.stderr || "", code: r.code ?? -1 });
     } catch (err) {
       setOutput({ stdout: "", stderr: `Network error: ${err.message}`, code: -1 });
     }
