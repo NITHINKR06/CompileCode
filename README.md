@@ -1,35 +1,68 @@
-# CodeRun — Online Code Editor
+# 🚀 CodeRun
 
-A browser-based code editor that lets you write and run code in multiple languages. Built with React + Vite on the frontend and an Express backend that executes code locally (Python/JS) or falls back to the Judge0 API for other languages.
+> A modern browser-based online code editor with multi-language execution support powered by React, Vite, Express, and Judge0.
 
----
-
-## Features
-
-- **6 languages** — Python, JavaScript, TypeScript, Java, C, C++
-- **Live execution** — run code with `RUN` or `Ctrl + Enter`
-- **STDIN support** — pass custom input to your program
-- **Export** — download your code as a file
-- **Dark / Light theme**
-- **Adjustable font size**
-- **Execution timer** and exit code display
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![React](https://img.shields.io/badge/React-19-61DAFB?logo=react)
+![Node.js](https://img.shields.io/badge/Node.js-18+-green?logo=node.js)
+![Vite](https://img.shields.io/badge/Vite-Frontend-646CFF?logo=vite)
 
 ---
 
-## Project Structure
+# ✨ Features
 
-```text
-CompileCode/
+- ⚡ Fast React + Vite frontend
+- 🧠 Multi-language code execution
+- ▶️ Run code instantly with keyboard shortcuts
+- 📝 STDIN input support
+- 🌙 Dark / Light mode
+- 🔤 Adjustable editor font size
+- 📤 Export code as files
+- ⏱ Execution timer & exit status
+- 🔌 Local execution for Python & JavaScript
+- ☁️ Judge0 API fallback for compiled languages
+
+---
+
+# 📸 Preview
+
+```txt
+Write code → Run → View Output instantly
+```
+
+---
+
+# 🛠 Supported Languages
+
+| Language | Support Type |
+|----------|---------------|
+| Python | Local + Judge0 |
+| JavaScript | Local + Judge0 |
+| TypeScript | Judge0 |
+| Java | Judge0 |
+| C | Judge0 |
+| C++ | Judge0 |
+
+---
+
+# 📂 Project Structure
+
+```bash
+CodeRun/
+│
 ├── api/
-│   └── execute.js
+│   └── execute.js          # Serverless execution handler
+│
 ├── public/
 │   └── favicon.svg
+│
 ├── src/
-│   ├── App.jsx
+│   ├── App.jsx             # Main editor UI
 │   ├── App.css
 │   ├── main.jsx
 │   └── index.css
-├── server.js
+│
+├── server.js               # Express backend
 ├── vite.config.js
 ├── package.json
 └── index.html
@@ -37,73 +70,62 @@ CompileCode/
 
 ---
 
-## Getting Started
+# ⚙️ Installation
 
-### Prerequisites
+## 1️⃣ Clone Repository
 
-- Node.js 18+
-- Python 3
+```bash
+git clone https://github.com/yourusername/coderun.git
+cd coderun
+```
 
-### Install
+---
+
+## 2️⃣ Install Dependencies
 
 ```bash
 npm install
 ```
 
-### Run Development Server
+---
+
+## 3️⃣ Start Development Server
 
 ```bash
 npm run dev
 ```
 
-Frontend:
+### Running Services
 
-```text
-http://localhost:3001
-```
-
-Backend:
-
-```text
-http://localhost:3002
-```
+| Service | URL |
+|---------|-----|
+| Frontend | http://localhost:3001 |
+| Backend | http://localhost:3002 |
 
 ---
 
-## Build For Production
+# 🧪 API Endpoints
 
-```bash
-npm run build
-```
+## POST `/api/execute`
 
-Production build output:
+Execute source code.
 
-```text
-dist/
-```
-
----
-
-## API
-
-### POST `/api/execute`
-
-#### Request
+### Request Body
 
 ```json
 {
   "language_id": 71,
-  "source_code": "print('hello')",
+  "source_code": "print('Hello World')",
   "stdin": ""
 }
 ```
 
-#### Response
+### Response
 
 ```json
 {
   "run": {
-    "stdout": "hello\n",
+    "stdout": "Hello World\n",
     "stderr": "",
     "code": 0
   }
@@ -112,52 +134,126 @@ dist/
 
 ---
 
-## Supported Languages
+## GET `/api/health`
 
-| Language   | Judge0 ID |
-| ---------- | ---------- |
-| Python     | 71         |
-| JavaScript | 63         |
-| TypeScript | 74         |
-| Java       | 62         |
-| C          | 50         |
-| C++        | 53         |
+Check backend status.
 
 ---
 
-## Tech Stack
+## GET `/api/test`
 
-| Layer      | Technology                |
-| ---------- | ------------------------- |
-| Frontend   | React + Vite              |
-| Backend    | Node.js + Express         |
-| Execution  | Local Spawn + Judge0 API  |
-| Styling    | CSS + JetBrains Mono      |
+Verify execution environment.
 
 ---
 
-## Security Warning
+# 🧠 How Execution Works
 
-Local execution for Python and JavaScript is **not sandboxed**.
-
-For production usage:
-
-- Use Docker isolation
-- Limit CPU and memory
-- Use read-only filesystem
-- Disable network access
+```text
+Browser
+   │
+   ▼
+POST /api/execute
+   │
+   ▼
+Express Backend
+   │
+   ├── Python / JS
+   │      └── Executed locally using spawn()
+   │
+   └── Other Languages
+          └── Forwarded to Judge0 API
+```
 
 ---
 
-## Known Limitations
+# 🔒 Security Warning
+
+⚠️ Local execution is NOT sandboxed.
+
+User code executed locally can access system resources.
+
+## Recommended Production Setup
+
+- Docker container isolation
+- Disable networking
+- Memory & CPU limits
+- Read-only filesystem
+- Remove local execution entirely
+
+---
+
+# 🚀 Production Build
+
+```bash
+npm run build
+```
+
+Generated files:
+
+```bash
+dist/
+```
+
+Deploy easily on:
+
+- Vercel
+- Netlify
+- Render
+- Railway
+
+---
+
+# 🧰 Tech Stack
+
+| Category | Technology |
+|----------|-------------|
+| Frontend | React 19 + Vite |
+| Backend | Node.js + Express |
+| Execution | Judge0 + Local Spawn |
+| Styling | CSS |
+| Font | JetBrains Mono |
+
+---
+
+# 📌 Known Limitations
 
 - No syntax highlighting
 - No persistent storage
 - Judge0 public API rate limits
-- Local execution is unsafe for production
+- No authentication system
+- Local execution unsafe for production
 
 ---
 
-## License
+# 🔮 Future Improvements
 
-MIT
+- Monaco Editor integration
+- Syntax highlighting
+- File system support
+- User authentication
+- Saved snippets/projects
+- Docker sandbox execution
+- Real-time collaboration
+- Custom themes
+
+---
+
+# 🤝 Contributing
+
+Contributions are welcome.
+
+```bash
+fork → clone → code → commit → pull request
+```
+
+---
+
+# 📄 License
+
+MIT License
+
+---
+
+# 👨‍💻 Author
+
+Built with ❤️ using React + Node.js
