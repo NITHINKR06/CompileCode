@@ -36,32 +36,16 @@ const LANGUAGES = [
 const CODE_EXECUTION_API = "/api/execute";
 
 const DARK = {
-  bg: "#070710",
-  surface: "#0d0d1c",
-  panel: "#0a0a18",
-  border: "#1a1a30",
-  text: "#dde2f0",
-  muted: "#3a3a5c",
-  subtle: "#6b7280",
-  accent: "#00ffa3",
-  accentDim: "rgba(0,255,163,0.12)",
-  error: "#ff5e5e",
-  errorDim: "rgba(255,94,94,0.08)",
+  bg: "#070710", surface: "#0d0d1c", panel: "#0a0a18", border: "#1a1a30",
+  text: "#dde2f0", muted: "#3a3a5c", subtle: "#6b7280", accent: "#00ffa3",
+  accentDim: "rgba(0,255,163,0.12)", error: "#ff5e5e", errorDim: "rgba(255,94,94,0.08)",
   lineNum: "#252545",
 };
 
 const LIGHT = {
-  bg: "#f4f6fb",
-  surface: "#ffffff",
-  panel: "#f0f2f9",
-  border: "#d8dce8",
-  text: "#1e2030",
-  muted: "#c0c4d6",
-  subtle: "#8a93a8",
-  accent: "#0066ff",
-  accentDim: "rgba(0,102,255,0.1)",
-  error: "#dc2626",
-  errorDim: "rgba(220,38,38,0.07)",
+  bg: "#f4f6fb", surface: "#ffffff", panel: "#f0f2f9", border: "#d8dce8",
+  text: "#1e2030", muted: "#c0c4d6", subtle: "#8a93a8", accent: "#0066ff",
+  accentDim: "rgba(0,102,255,0.1)", error: "#dc2626", errorDim: "rgba(220,38,38,0.07)",
   lineNum: "#c8ccd8",
 };
 
@@ -69,7 +53,7 @@ export default function App() {
   const [theme, setTheme] = useState("dark");
   const T = theme === "dark" ? DARK : LIGHT;
 
-  const [phase, setPhase] = useState("splash"); // splash | editor
+  const [phase, setPhase] = useState("splash");
   const [lang, setLang] = useState(null);
   const [code, setCode] = useState("");
   const [stdin, setStdin] = useState("");
@@ -89,13 +73,33 @@ export default function App() {
     setTimeout(() => setSplashAnim(true), 50);
   }, []);
 
+  // Fix #9: Re-sync scroll when fontSize changes so line numbers stay aligned
+  useEffect(() => {
+    if (lineNumRef.current && textareaRef.current) {
+      lineNumRef.current.scrollTop = textareaRef.current.scrollTop;
+    }
+  }, [fontSize]);
+
   const selectLang = (l) => {
     setLang(l);
     setCode(l.starter);
     setOutput(null);
     setExecTime(null);
+    // Fix #7 & #8: Clear stdin and execTime when picking a language from splash
+    setStdin("");
+    setShowStdin(false);
     setSplashAnim(false);
     setTimeout(() => setPhase("editor"), 300);
+  };
+
+  const switchLang = (l) => {
+    setLang(l);
+    setCode(l.starter);
+    setOutput(null);
+    // Fix #7 & #8: Also clear stdin and execTime when switching via editor tab
+    setStdin("");
+    setShowStdin(false);
+    setExecTime(null);
   };
 
   const syncScroll = () => {
@@ -104,6 +108,42 @@ export default function App() {
     }
   };
 
+  // Fix #2: run defined with useCallback so handleKeyDown can safely depend on it
+  const run = useCallback(async () => {
+    if (!lang) return;
+    setRunning(true);
+    setOutput(null);
+    const t0 = Date.now();
+    try {
+      const res = await fetch(CODE_EXECUTION_API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ language_id: lang.judge0Id, source_code: code, stdin }),
+      });
+
+      // Fix #1: Check res.ok BEFORE calling res.json()
+      // If the server returns a non-JSON error page, res.json() would crash and hide the real error
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`API Error ${res.status}: ${text}`);
+      }
+
+      const data = await res.json();
+      const r = data.run || data;
+
+      setExecTime(((Date.now() - t0) / 1000).toFixed(2));
+      setOutput({ stdout: r.stdout || "", stderr: r.stderr || "", code: r.code ?? 0 });
+    } catch (err) {
+      setOutput({
+        stdout: "",
+        stderr: `❌ Error: ${err.message}${err.message.includes("Network") ? "" : "\n\nTip: Check if backend is running on :3002"}`,
+        code: -1,
+      });
+    }
+    setRunning(false);
+  }, [lang, code, stdin]);
+
+  // Fix #2: handleKeyDown now depends on run (which is stable via useCallback)
   const handleKeyDown = useCallback((e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
       e.preventDefault();
@@ -117,11 +157,9 @@ export default function App() {
       const end = ta.selectionEnd;
       const newCode = code.substring(0, start) + "  " + code.substring(end);
       setCode(newCode);
-      setTimeout(() => {
-        ta.selectionStart = ta.selectionEnd = start + 2;
-      }, 0);
+      setTimeout(() => { ta.selectionStart = ta.selectionEnd = start + 2; }, 0);
     }
-  }, [code]);
+  }, [code, run]);
 
   const updateCursor = () => {
     const ta = textareaRef.current;
@@ -129,46 +167,6 @@ export default function App() {
     const text = ta.value.substring(0, ta.selectionStart);
     const lines = text.split("\n");
     setCursorPos({ line: lines.length, col: lines[lines.length - 1].length + 1 });
-  };
-
-  const run = async () => {
-    if (running || !lang) return;
-    setRunning(true);
-    setOutput(null);
-    const t0 = Date.now();
-    try {
-      const res = await fetch(CODE_EXECUTION_API, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          language_id: lang.judge0Id,
-          source_code: code,
-          stdin,
-        }),
-      });
-      const data = await res.json();
-      
-      // Handle Piston API response (data.run) or direct response
-      const r = data.run || data;
-      
-      if (!res.ok) {
-        throw new Error(data.message || `API Error: ${res.status}`);
-      }
-      
-      setExecTime(((Date.now() - t0) / 1000).toFixed(2));
-      setOutput({ 
-        stdout: r.stdout || "", 
-        stderr: r.stderr || "", 
-        code: r.code ?? 0 
-      });
-    } catch (err) {
-      setOutput({ 
-        stdout: "", 
-        stderr: `❌ Error: ${err.message}${err.message.includes("Network") ? "" : "\n\nTip: Check if backend is running on :3002"}`, 
-        code: -1 
-      });
-    }
-    setRunning(false);
   };
 
   const exportCode = () => {
@@ -198,25 +196,16 @@ export default function App() {
     return (
       <div style={{
         fontFamily: "'JetBrains Mono', monospace",
-        background: T.bg,
-        minHeight: "100vh",
-        color: T.text,
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "40px 20px",
-        transition: "opacity 0.3s",
-        opacity: splashAnim ? 1 : 0,
-        position: "relative",
-        overflow: "hidden",
+        background: T.bg, minHeight: "100vh", color: T.text,
+        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+        padding: "40px 20px", transition: "opacity 0.3s", opacity: splashAnim ? 1 : 0,
+        position: "relative", overflow: "hidden",
       }}>
         {/* Grid bg */}
         <div style={{
           position: "absolute", inset: 0, zIndex: 0,
           backgroundImage: `linear-gradient(${T.border} 1px, transparent 1px), linear-gradient(90deg, ${T.border} 1px, transparent 1px)`,
-          backgroundSize: "40px 40px",
-          opacity: 0.4,
+          backgroundSize: "40px 40px", opacity: 0.4,
         }} />
 
         {/* Glow */}
@@ -230,20 +219,15 @@ export default function App() {
         <div style={{ position: "relative", zIndex: 1, width: "100%", maxWidth: "860px" }}>
           {/* Header */}
           <div style={{ textAlign: "center", marginBottom: "52px" }}>
-            <div style={{
-              display: "inline-flex", alignItems: "center", gap: "10px",
-              marginBottom: "16px",
-            }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: "10px", marginBottom: "16px" }}>
+              {/* Fix #10: Replace garbled {">"}_ with a proper terminal-style icon using text */}
               <div style={{
                 width: "36px", height: "36px", borderRadius: "8px",
                 background: `linear-gradient(135deg, ${T.accent}, ${theme === "dark" ? "#00cfff" : "#0044cc"})`,
                 display: "flex", alignItems: "center", justifyContent: "center",
-                color: "#000", fontWeight: "900", fontSize: "16px",
-              }}>{">"}_</div>
-              <span style={{
-                fontSize: "22px", fontWeight: "800", letterSpacing: "4px",
-                color: T.accent,
-              }}>CODERUN</span>
+                color: "#000", fontWeight: "900", fontSize: "14px",
+              }}>&gt;_</div>
+              <span style={{ fontSize: "22px", fontWeight: "800", letterSpacing: "4px", color: T.accent }}>CODERUN</span>
             </div>
             <p style={{ fontSize: "13px", color: T.subtle, letterSpacing: "1px", margin: 0 }}>
               Pick a language. Start coding. Nothing saved. Ever.
@@ -262,23 +246,13 @@ export default function App() {
           </div>
 
           {/* Language Cards */}
-          <div style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
-            gap: "14px",
-          }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: "14px" }}>
             {LANGUAGES.map((l, i) => (
               <button key={l.id} onClick={() => selectLang(l)} style={{
-                background: T.surface,
-                border: `1px solid ${T.border}`,
-                borderRadius: "10px",
-                padding: "20px",
-                cursor: "pointer",
-                textAlign: "left",
-                transition: "all 0.18s ease",
-                animationDelay: `${i * 60}ms`,
-                position: "relative",
-                overflow: "hidden",
+                background: T.surface, border: `1px solid ${T.border}`,
+                borderRadius: "10px", padding: "20px", cursor: "pointer",
+                textAlign: "left", transition: "all 0.18s ease",
+                animationDelay: `${i * 60}ms`, position: "relative", overflow: "hidden",
               }}
                 onMouseEnter={e => {
                   e.currentTarget.style.borderColor = l.color;
@@ -292,17 +266,13 @@ export default function App() {
                 }}
               >
                 <div style={{
-                  position: "absolute", top: 0, right: 0,
-                  width: "60px", height: "60px",
+                  position: "absolute", top: 0, right: 0, width: "60px", height: "60px",
                   background: `radial-gradient(circle at top right, ${l.color}18, transparent 70%)`,
                 }} />
                 <div style={{ fontSize: "24px", marginBottom: "10px" }}>{l.icon}</div>
                 <div style={{ fontSize: "14px", fontWeight: "700", color: T.text, marginBottom: "4px" }}>{l.label}</div>
                 <div style={{ fontSize: "10px", color: T.subtle, letterSpacing: "0.5px" }}>{l.desc}</div>
-                <div style={{
-                  marginTop: "14px", fontSize: "10px", letterSpacing: "1px",
-                  color: l.color, display: "flex", alignItems: "center", gap: "4px"
-                }}>
+                <div style={{ marginTop: "14px", fontSize: "10px", letterSpacing: "1px", color: l.color, display: "flex", alignItems: "center", gap: "4px" }}>
                   SELECT →
                 </div>
               </button>
@@ -319,23 +289,14 @@ export default function App() {
   return (
     <div style={{
       fontFamily: "'JetBrains Mono', monospace",
-      background: T.bg,
-      height: "100vh",
-      color: T.text,
-      display: "flex",
-      flexDirection: "column",
-      overflow: "hidden",
+      background: T.bg, height: "100vh", color: T.text,
+      display: "flex", flexDirection: "column", overflow: "hidden",
     }}>
       {/* Topbar */}
       <div style={{
-        background: T.surface,
-        borderBottom: `1px solid ${T.border}`,
-        padding: "0 16px",
-        height: "46px",
-        display: "flex",
-        alignItems: "center",
-        gap: "12px",
-        flexShrink: 0,
+        background: T.surface, borderBottom: `1px solid ${T.border}`,
+        padding: "0 16px", height: "46px",
+        display: "flex", alignItems: "center", gap: "12px", flexShrink: 0,
       }}>
         {/* Logo + back */}
         <button onClick={() => { setSplashAnim(false); setTimeout(() => { setPhase("splash"); setTimeout(() => setSplashAnim(true), 50); }, 50); }} style={{
@@ -348,20 +309,16 @@ export default function App() {
 
         <div style={{ width: "1px", height: "20px", background: T.border }} />
 
-        {/* Lang tabs */}
+        {/* Lang tabs — Fix #7 #8: use switchLang which also clears stdin/execTime */}
         <div style={{ display: "flex", gap: "3px", flex: 1, overflowX: "auto" }}>
           {LANGUAGES.map(l => (
-            <button key={l.id} onClick={() => { setLang(l); setCode(l.starter); setOutput(null); }} style={{
-              padding: "4px 10px",
-              borderRadius: "4px",
+            <button key={l.id} onClick={() => switchLang(l)} style={{
+              padding: "4px 10px", borderRadius: "4px",
               border: lang?.id === l.id ? `1px solid ${l.color}` : `1px solid transparent`,
               background: lang?.id === l.id ? `${l.color}18` : "transparent",
               color: lang?.id === l.id ? l.color : T.subtle,
-              fontSize: "10px", fontWeight: "700",
-              cursor: "pointer", letterSpacing: "0.5px",
-              whiteSpace: "nowrap",
-              transition: "all 0.12s",
-              fontFamily: "inherit",
+              fontSize: "10px", fontWeight: "700", cursor: "pointer", letterSpacing: "0.5px",
+              whiteSpace: "nowrap", transition: "all 0.12s", fontFamily: "inherit",
             }}>{l.icon} {l.label}</button>
           ))}
         </div>
@@ -399,15 +356,12 @@ export default function App() {
 
           {/* Run */}
           <button onClick={run} disabled={running} style={{
-            padding: "5px 18px",
-            borderRadius: "4px",
-            border: "none",
+            padding: "5px 18px", borderRadius: "4px", border: "none",
             background: running ? T.muted : `linear-gradient(135deg, ${T.accent}, ${theme === "dark" ? "#00d4ff" : "#0044cc"})`,
             color: running ? T.subtle : (theme === "dark" ? "#000" : "#fff"),
             fontSize: "11px", fontWeight: "800",
             cursor: running ? "not-allowed" : "pointer",
-            letterSpacing: "1.5px", fontFamily: "inherit",
-            transition: "opacity 0.15s",
+            letterSpacing: "1.5px", fontFamily: "inherit", transition: "opacity 0.15s",
           }}>
             {running ? "◌ RUN" : "▶ RUN"}
           </button>
@@ -437,8 +391,7 @@ export default function App() {
               width: "48px", padding: `${fontSize * 1.1}px 8px ${fontSize * 1.1}px 0`,
               textAlign: "right", color: T.lineNum, fontSize: `${fontSize - 1}px`,
               lineHeight: `${fontSize * 1.6}px`, userSelect: "none",
-              overflowY: "hidden", flexShrink: 0,
-              borderRight: `1px solid ${T.border}`,
+              overflowY: "hidden", flexShrink: 0, borderRight: `1px solid ${T.border}`,
             }}>
               {Array.from({ length: lineCount }, (_, i) => (
                 <div key={i}>{i + 1}</div>
@@ -499,11 +452,9 @@ export default function App() {
         {/* Output pane */}
         <div style={{ width: "38%", minWidth: "260px", display: "flex", flexDirection: "column", background: T.panel }}>
           <div style={{
-            padding: "5px 16px", background: T.surface,
-            borderBottom: `1px solid ${T.border}`,
+            padding: "5px 16px", background: T.surface, borderBottom: `1px solid ${T.border}`,
             fontSize: "9px", color: T.subtle, letterSpacing: "1px",
-            display: "flex", justifyContent: "space-between", alignItems: "center",
-            flexShrink: 0,
+            display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0,
           }}>
             <span>OUTPUT</span>
             <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
@@ -552,19 +503,15 @@ export default function App() {
                 {output.stdout && (
                   <pre style={{
                     color: T.text, margin: 0, whiteSpace: "pre-wrap",
-                    wordBreak: "break-word", fontFamily: "inherit",
-                    fontSize: `${fontSize - 1}px`,
+                    wordBreak: "break-word", fontFamily: "inherit", fontSize: `${fontSize - 1}px`,
                   }}>{output.stdout}</pre>
                 )}
                 {output.stderr && (
                   <pre style={{
-                    color: T.error,
-                    margin: output.stdout ? "12px 0 0" : 0,
+                    color: T.error, margin: output.stdout ? "12px 0 0" : 0,
                     whiteSpace: "pre-wrap", wordBreak: "break-word",
                     fontFamily: "inherit", fontSize: `${fontSize - 1}px`,
-                    padding: "10px 12px",
-                    background: T.errorDim,
-                    borderRadius: "4px",
+                    padding: "10px 12px", background: T.errorDim, borderRadius: "4px",
                     borderLeft: `2px solid ${T.error}`,
                   }}>{output.stderr}</pre>
                 )}
